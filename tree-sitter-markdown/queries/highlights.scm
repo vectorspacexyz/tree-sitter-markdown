@@ -15,7 +15,6 @@
 
 [
   (link_title)
-  (indented_code_block)
   (fenced_code_block)
 ] @text.literal
 

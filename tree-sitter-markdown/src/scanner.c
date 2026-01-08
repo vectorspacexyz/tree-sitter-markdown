@@ -12,7 +12,6 @@ typedef enum {
     BLOCK_CLOSE,
     BLOCK_CONTINUATION,
     BLOCK_QUOTE_START,
-    INDENTED_CHUNK_START,
     ATX_H1_MARKER,
     ATX_H2_MARKER,
     ATX_H3_MARKER,
@@ -46,7 +45,6 @@ typedef enum {
     HTML_BLOCK_6_START,
     HTML_BLOCK_7_START,
     CLOSE_BLOCK,
-    NO_INDENTED_CHUNK,
     ERROR,
     TRIGGER_ERROR,
     TOKEN_EOF,
@@ -66,7 +64,6 @@ typedef enum {
 // external s.
 typedef enum {
     BLOCK_QUOTE,
-    INDENTED_CODE_BLOCK,
     LIST_ITEM,
     LIST_ITEM_1_INDENTATION,
     LIST_ITEM_2_INDENTATION,
@@ -127,7 +124,6 @@ static const bool paragraph_interrupt_symbols[] = {
     false, // BLOCK_CLOSE,
     false, // BLOCK_CONTINUATION,
     true,  // BLOCK_QUOTE_START,
-    false, // INDENTED_CHUNK_START,
     true,  // ATX_H1_MARKER,
     true,  // ATX_H2_MARKER,
     true,  // ATX_H3_MARKER,
@@ -161,7 +157,6 @@ static const bool paragraph_interrupt_symbols[] = {
     true,  // HTML_BLOCK_6_START,
     false, // HTML_BLOCK_7_START,
     false, // CLOSE_BLOCK,
-    false, // NO_INDENTED_CHUNK,
     false, // ERROR,
     false, // TRIGGER_ERROR,
     false, // EOF,
@@ -333,20 +328,6 @@ static size_t advance(Scanner *s, TSLexer *lexer) {
 // Returns true if the block is matched and false otherwise
 static bool match(Scanner *s, TSLexer *lexer, Block block) {
     switch (block) {
-        case INDENTED_CODE_BLOCK:
-            while (s->indentation < 4) {
-                if (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
-                    s->indentation += advance(s, lexer);
-                } else {
-                    break;
-                }
-            }
-            if (s->indentation >= 4 && lexer->lookahead != '\n' &&
-                lexer->lookahead != '\r') {
-                s->indentation -= 4;
-                return true;
-            }
-            break;
         case LIST_ITEM:
         case LIST_ITEM_1_INDENTATION:
         case LIST_ITEM_2_INDENTATION:
@@ -1350,20 +1331,6 @@ static bool scan(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
                 s->indentation += advance(s, lexer);
             } else {
                 break;
-            }
-        }
-        // We are not matching. This is where the parsing logic for most
-        // "normal" token is. Most importantly parsing logic for the start of
-        // new blocks.
-        if (valid_symbols[INDENTED_CHUNK_START] &&
-            !valid_symbols[NO_INDENTED_CHUNK]) {
-            if (s->indentation >= 4 && lexer->lookahead != '\n' &&
-                lexer->lookahead != '\r') {
-                lexer->result_symbol = INDENTED_CHUNK_START;
-                if (!s->simulate)
-                    push_block(s, INDENTED_CODE_BLOCK);
-                s->indentation -= 4;
-                return true;
             }
         }
         // Decide which tokens to consider based on the first non-whitespace

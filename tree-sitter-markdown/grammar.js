@@ -37,7 +37,6 @@ module.exports = grammar({
             alias($._setext_heading1, $.setext_heading),
             alias($._setext_heading2, $.setext_heading),
             $.paragraph,
-            $.indented_code_block,
             $.block_quote,
             $.thematic_break,
             $.list,
@@ -150,13 +149,6 @@ module.exports = grammar({
             choice($._newline, $._eof),
         ),
 
-        // An indented code block. An indented code block is made up of indented chunks and blank
-        // lines. The indented chunks are handeled by the external scanner.
-        //
-        // https://github.github.com/gfm/#indented-code-blocks
-        indented_code_block: $ => prec.right(seq($._indented_chunk, repeat(choice($._indented_chunk, $._blank_line)))),
-        _indented_chunk: $ => seq($._indented_chunk_start, repeat(choice($._line, $._newline)), $._block_close, optional($.block_continuation)),
-
         // A fenced code block. Fenced code blocks are mainly handled by the external scanner. In
         // case of backtick code blocks the external scanner also checks that the info string is
         // proper.
@@ -237,10 +229,7 @@ module.exports = grammar({
         ),
 
         // A link reference definition. We need to make sure that this is not mistaken for a
-        // paragraph or indented chunk. The `$._no_indented_chunk` token is used to tell the
-        // external scanner not to allow indented chunks when the `$.link_title` of the link
-        // reference definition would be valid.
-        //
+        // paragraph.
         // https://github.github.com/gfm/#link-reference-definitions
         link_reference_definition: $ => prec.dynamic(PRECEDENCE_LEVEL_LINK, seq(
             optional($._whitespace),
@@ -253,7 +242,6 @@ module.exports = grammar({
                     seq($._whitespace, optional(seq($._soft_line_break, optional($._whitespace)))),
                     seq($._soft_line_break, optional($._whitespace)),
                 ),
-                optional($._no_indented_chunk),
                 $.link_title
             ))),
             choice($._newline, $._soft_line_break, $._eof),
@@ -271,8 +259,7 @@ module.exports = grammar({
         // branch.
         //
         // The other parse branch consideres the paragraph to be over. It will be killed if no valid new
-        // block is detected before the next newline. (For example it will also be killed if a indented
-        // code block is detected, which cannot interrupt paragraphs).
+        // block is detected before the next newline.
         //
         // Either way, after the next newline only one branch will exist, so the ammount of branches
         // related to paragraphs ending does not grow.
@@ -519,7 +506,6 @@ module.exports = grammar({
         // always span one line are marked as such.
 
         $._block_quote_start,
-        $._indented_chunk_start,
         $.atx_h1_marker, // atx headings do not need a `$._block_close`
         $.atx_h2_marker,
         $.atx_h3_marker,
@@ -564,10 +550,6 @@ module.exports = grammar({
         // `$._block_close` can also get emitted if the parent block closes.
         $._close_block,
 
-        // This is a workaround so the external parser does not try to open indented blocks when
-        // parsing a link reference definition.
-        $._no_indented_chunk,
-
         // An `$._error` token is never valid  and gets emmited to kill invalid parse branches. Concretely
         // this is used to decide wether a newline closes a paragraph and together and it gets emitted
         // when trying to parse the `$._trigger_error` token in `$.link_title`.
@@ -584,7 +566,6 @@ module.exports = grammar({
     precedences: $ => [
         [$._setext_heading1, $._block],
         [$._setext_heading2, $._block],
-        [$.indented_code_block, $._block],
     ],
     conflicts: $ => [
         [$.link_reference_definition],
